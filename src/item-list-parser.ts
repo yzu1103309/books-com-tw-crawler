@@ -51,13 +51,35 @@ const getItemImageUrl = (htmlCode: string): string | null => {
   }
 
   if (result) {
-    return result[0].replace(
+    let url = result[0].replace(
       /srcset="https:\/\/im1\.book\.com\.tw\/image\/getImage\?i=([\w\W]*?)&[\w\W]*/gi,
       "$1",
     );
+    if(url.includes("restricted18"))
+    {
+      let productId = getProductId(htmlCode);
+      if(productId) return getRestrictedImageUrl(productId);
+    }
+    return url
   }
   return null;
 };
+
+function getRestrictedImageUrl(id: string): string {
+  // if id is "AAABBBCCDD",
+  // img url would be https://www.books.com.tw/img/AAA/BBB/CC/AAABBBCCDD.jpg
+
+  // get part1 "AAA"
+  const part1 = id.substring(0, 3);
+  // get part2 "BBB"
+  const part2 = id.substring(3, 6);
+  // get part3 "CC"
+  const part3 = id.substring(6, 8);
+
+  // the full img url
+  return `https://www.books.com.tw/img/${part1}/${part2}/${part3}/${id}.jpg`;
+}
+
 
 const getItemAuthor = (htmlCode: string): string[] | null => {
   const result: string[] | null = htmlCode.match(/<a rel='go_author'[\w\W]*?>[\w\W]*?<\/a>/gi);
@@ -100,13 +122,19 @@ const getItemPublicationDate = (htmlCode: string): string | null => {
 };
 
 const getItemUrl = (htmlCode: string): string | null => {
-  let result: string[] | null = htmlCode.match(/<h4>[\w\W]*?<\/h4>/gi);
-  if (result) {
-    result = result[0].match(/<a [\w\W]*?<\/a>/gi);
-  }
+  // get books.com product id
+  const id = getProductId(htmlCode);
+  // if id can be parsed, use it to get url
+  if (id) return `https://www.books.com.tw/products/${id}`
+  else { // else fall back to the redirect url from the html code
+    let result: string[] | null = htmlCode.match(/<h4>[\w\W]*?<\/h4>/gi);
+    if (result) {
+      result = result[0].match(/<a [\w\W]*?<\/a>/gi);
+    }
 
-  if (result) {
-    return result[0].replace(/<a [\w\W]*?href="([\w\W]*?)"[\w\W]*/gi, "http:$1");
+    if (result) {
+      return result[0].replace(/<a [\w\W]*?href="([\w\W]*?)"[\w\W]*/gi, "http:$1");
+    }
   }
   return null;
 };
@@ -131,6 +159,12 @@ const getItemIntroduction = (htmlCode: string): string | null => {
   }
   return null;
 };
+
+function getProductId(htmlCode: string): string | null {
+  // get unique books.com product id
+  const match: string[] | null = htmlCode.match(/<tbody\s+id="itemlist_([^"]+)"/);
+  return match ? match[1] : null;
+}
 
 const getItem = (htmlCode: string): DetailType => {
   return {
